@@ -5,9 +5,12 @@
 #include <vector>
 #include <cstdlib>
 #include <string>
+#include <chrono>
+#include <thread>
 
 using json = nlohmann::json;
 
+// add country???
 struct Address {
     std::string name;
     std::string address;
@@ -15,7 +18,6 @@ struct Address {
 };
 
 int main(int argc, char** argv) {
-
     // parse the address data from the json file
     // TODO: gain access to the roster/planning (hopefully as json) on ecologieconnect.nl
     std::ifstream inputFile("../address.json");
@@ -38,49 +40,66 @@ int main(int argc, char** argv) {
         std:: string address = item["address"];
         std:: string city = item["city"];
 
-        // std::cout << "name: " << name << std::endl;        
-        // std::cout << "address: " << address << std::endl;
-        // std::cout << "city: " << city << std::endl;
-
+        // make an Address object, using employee data and push it into the addresses vector
         addresses.push_back(Address{name, address, city});
-    }
-
-    // consider sending all the addresses in 1 big batch to limit network requests
-    // TODO: api requests to locationiq
-    for (const auto& addr : addresses) {
-        std::cout << "sending request for: " << addr.name << ", " << addr.address << ", " << addr.city << std::endl;        
     }
 
     // get api key from env
     const char* apiKey = std::getenv("LIQ_API_KEY");
-    if (apiKey) {
-        std::cout << "API_KEY: " << apiKey << std::endl;
-    }
-    
-    // https://us1.locationiq.com/v1/search?key=YOUR_API_KEY&q=Statue%20of%20Liberty,%20New%20York&format=json
+    // if (apiKey) {
+    //     std::cout << "API_KEY: " << apiKey << std::endl;
+    // }
 
-    // format a test query
-    std::string first = addresses[0].city;
-    std::string second = addresses[0].address;
-    std::string query = first + ", " + second;    
+    std::cout << "forward geolocating employees' addresses..." << std::endl;
 
-    cpr::Response r = cpr::Get(
-        cpr::Url{"https://us1.locationiq.com/v1/search"},
-        cpr::Parameters{
-            {"key", apiKey}, 
-            {"q", query},
-            {"format", "json"}
-        });
-    r.status_code;                  // 200
-    r.header["content-type"];       // application/json; charset=utf-8
-    r.text;
-    
-    if (r.status_code == 200) {
-        // Print the response text
-        std::cout << "Response Text: " << r.text << std::endl;
-    } else {
-        std::cout << "Request failed with status code: " << r.status_code << std::endl;
-    }
+    for (const auto& addr : addresses) {
+        // std::cout << "sending request for: " << addr.name << ", " << addr.address << ", " << addr.city << std::endl;    
+        
+        // https://eu1.locationiq.com/v1/search?key=YOUR_API_KEY&q=Statue%20of%20Liberty,%20New%20York&format=json
+        
+        std::string query = addr.city + ", " + addr.address + ", Netherlands";
+
+        // TODO: make sure the query isn't ambiguous (can return multiple objects)
+        // consider using country, postal code as well.
+        cpr::Response r = cpr::Get(
+            cpr::Url{"https://eu1.locationiq.com/v1/search"},
+            cpr::Parameters{
+                {"key", apiKey}, 
+                {"q", query},
+                {"format", "json"}
+            });
+        r.status_code;                  
+        // r.header["content-type"];       // application/json; charset=utf-8
+        r.text;
+        
+        // parse the response and get lon/lat
+        if (r.status_code == 200) {            
+            try {
+                json response = json::parse(r.text);
+                if (!response.empty()) {
+                    std::string lat = response[0]["lat"];
+                    std::string lon = response[0]["lon"];                
+
+                    std::cout << "name: " << addr.name << "lat: " << lat << ", lon: " << lon << std::endl;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "JSON parse error: " << e.what() << std::endl;
+            }
+        } else {
+            std::cout << "request failed, code: " << r.status_code << std::endl;
+        }
+
+        // TODO: add lon / lat fields to Address and populate them.
+        // save result to file or csv.
+        // in the future, check file beforehand and only 
+        // make this request if lon/lat isn't known
+        // (so in the case of a new employee. be mindful of employee moving)
+
+        // sleep to obey api rate limit
+        std::this_thread::sleep_for(std::chrono::milliseconds(1001));        
+    } 
+
+    // TODO: add some targets to compare with all the addresses of the employees.    
 
     return 0;
 }
@@ -89,7 +108,7 @@ int main(int argc, char** argv) {
 
     // cpr HTTP req
     // parse the addresses (json) with nlohmann/json
-    // send a geocoding api request with the data of the address
+    // send a geocoding api request with the data of the addresses
 
 // OSRM /table api for distance/time matrix
 
