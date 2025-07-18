@@ -12,11 +12,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Find the cpr package
 find_package(cpr REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 # Add the executable
 add_executable(main main.cpp)
 
-# Link the CPR library
-target_link_libraries(main PRIVATE cpr::cpr)
+# Link libraries
+target_link_libraries(main PRIVATE cpr::cpr nlohmann_json::nlohmann_json)
+
 
 
