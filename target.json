@@ -1,0 +1,62 @@
+[
+  {
+    "city": "Utrecht",
+    "address": "Nachtegaalstraat 56",
+    "country": "Netherlands",
+    "target_number": 1
+  },
+  {
+    "city": "Rotterdam",
+    "address": "Mathenesserlaan 23B",
+    "country": "Netherlands",
+    "target_number": 2
+  },
+  {
+    "city": "Groningen",
+    "address": "Vismarkt 12",
+    "country": "Netherlands",
+    "target_number": 3
+  },
+  {
+    "city": "Maastricht",
+    "address": "Brusselsestraat 45",
+    "country": "Netherlands",
+    "target_number": 4
+  },
+  {
+    "city": "Leiden",
+    "address": "Breestraat 99",
+    "country": "Netherlands",
+    "target_number": 5
+  },
+  {
+    "city": "Nijmegen",
+    "address": "Molenstraat 8A",
+    "country": "Netherlands",
+    "target_number": 6
+  },
+  {
+    "city": "Eindhoven",
+    "address": "Kleine Berg 34",
+    "country": "Netherlands",
+    "target_number": 7
+  },
+  {
+    "city": "Zwolle",
+    "address": "Diezerstraat 102",
+    "country": "Netherlands",
+    "target_number": 8
+  },
+  {
+    "city": "Delft",
+    "address": "Oude Delft 67",
+    "country": "Netherlands",
+    "target_number": 9
+  },
+  {
+    "city": "Amersfoort",
+    "address": "Krommestraat 14",
+    "country": "Netherlands",
+    "target_number": 10
+  }
+]

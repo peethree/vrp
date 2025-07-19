@@ -15,33 +15,77 @@ struct Address {
     std::string name;
     std::string address;
     std::string city;
+    float lon;
+    float lat;
 };
+
+struct Target {
+    int target_number;
+    std::string address;
+    std::string city;
+    std::string country;
+    float lon;
+    float lat;
+};
+
+json loadJsonFile(const std::string& path) 
+{
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "can't open " << path << "..." << std::endl;
+        exit(1);
+    }    
+
+    json j;
+    file >> j;
+    return j;
+}
+
+cpr::Response forwardGeolocate(std::string query, const char* apiKey)
+{
+    // TODO: make sure the query isn't ambiguous (can return multiple objects)
+    // consider using country, postal code as well.
+    cpr::Response r = cpr::Get(
+        cpr::Url{"https://eu1.locationiq.com/v1/search"},
+        cpr::Parameters{
+            {"key", apiKey}, 
+            {"q", query},
+            {"format", "json"}
+        });
+    return r;
+}
 
 int main(int argc, char** argv) {
     // parse the address data from the json file
     // TODO: gain access to the roster/planning (hopefully as json) on ecologieconnect.nl
-    std::ifstream inputFile("../address.json");
+    // this could be a daily json with the roster of available people
 
-    if (!inputFile.is_open()) {
-        std::cerr << "can't open address.json" << std::endl;
-        return 1;
-    }
-    
-    json j;
-    inputFile >> j;
+    // I/O addresses + targets
+    json j = loadJsonFile("../address.json");  
+    json jt = loadJsonFile("../target.json");    
 
-    inputFile.close();
-
-    // vector in which addresses will be stored
+    // vectors in which addresses/targets will be stored
     std::vector<Address> addresses;
+    std::vector<Target> targets;
 
+    // populate addresses vector
     for (const auto& item: j){
-        std:: string name = item["name"];
-        std:: string address = item["address"];
-        std:: string city = item["city"];
+        std::string name = item["name"];
+        std::string address = item["address"];
+        std::string city = item["city"];
 
         // make an Address object, using employee data and push it into the addresses vector
         addresses.push_back(Address{name, address, city});
+    }
+
+    // populate target vector
+    for (const auto& item: jt){
+        int target = item["target_number"];
+        std::string address = item["address"];
+        std::string city = item["city"];
+        std::string country = item["country"];
+
+        targets.push_back(Target{target, address, city, country});
     }
 
     // get api key from env
@@ -50,37 +94,60 @@ int main(int argc, char** argv) {
     //     std::cout << "API_KEY: " << apiKey << std::endl;
     // }
 
-    std::cout << "forward geolocating employees' addresses..." << std::endl;
+    std::cout << "forward-geolocating target addresses..." << std::endl;
 
-    for (const auto& addr : addresses) {
+    for (auto& tar : targets) {
+        // std::cout << "tar: " << tar.target_number << ", address: " << tar.address << ", city: " << tar.city << ", country: " << tar.country << ",lon: " << tar.lon << ",lat: " << tar.lat << std::endl;
+        std::string query = tar.city + ", " + tar.address + ", " + tar.country;
+
+        cpr::Response rt = forwardGeolocate(query, apiKey); 
+        rt.status_code;
+        rt.text;
+
+        if (rt.status_code == 200) {            
+            try {
+                json response = json::parse(rt.text);
+
+                if (!response.empty()) {
+                    // api returns lon/lat as string, convert to float (maybe useful for later)
+                    tar.lat = std::stof(response[0]["lat"].get<std::string>());
+                    tar.lon = std::stof(response[0]["lon"].get<std::string>());               
+
+                    std::cout << "tar#: " << tar.target_number << ", lat: " << tar.lat << ", lon: " << tar.lon << std::endl;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "JSON parse error: " << e.what() << std::endl;
+            }
+        } else {
+            std::cout << "request failed, code: " << rt.status_code << std::endl;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1001));
+    }
+
+    std::cout << "forward-geolocating employees' addresses..." << std::endl;
+
+    for (auto& addr : addresses) {
         // std::cout << "sending request for: " << addr.name << ", " << addr.address << ", " << addr.city << std::endl;    
         
         // https://eu1.locationiq.com/v1/search?key=YOUR_API_KEY&q=Statue%20of%20Liberty,%20New%20York&format=json
         
         std::string query = addr.city + ", " + addr.address + ", Netherlands";
 
-        // TODO: make sure the query isn't ambiguous (can return multiple objects)
-        // consider using country, postal code as well.
-        cpr::Response r = cpr::Get(
-            cpr::Url{"https://eu1.locationiq.com/v1/search"},
-            cpr::Parameters{
-                {"key", apiKey}, 
-                {"q", query},
-                {"format", "json"}
-            });
-        r.status_code;                  
-        // r.header["content-type"];       // application/json; charset=utf-8
+        cpr::Response r = forwardGeolocate(query, apiKey);
+        r.status_code;
         r.text;
         
         // parse the response and get lon/lat
         if (r.status_code == 200) {            
             try {
                 json response = json::parse(r.text);
-                if (!response.empty()) {
-                    std::string lat = response[0]["lat"];
-                    std::string lon = response[0]["lon"];                
 
-                    std::cout << "name: " << addr.name << "lat: " << lat << ", lon: " << lon << std::endl;
+                if (!response.empty()) {
+                    addr.lat = std::stof(response[0]["lat"].get<std::string>());
+                    addr.lon = std::stof(response[0]["lon"].get<std::string>());               
+
+                    std::cout << "name: " << addr.name << ", lat: " << addr.lat << ", lon: " << addr.lon << std::endl;
                 }
             } catch (const std::exception& e) {
                 std::cerr << "JSON parse error: " << e.what() << std::endl;
@@ -131,3 +198,6 @@ int main(int argc, char** argv) {
     // optimize the routes. greedy algo or google OR-tools VRP solution
 
     // print assignments.
+
+    // keep track of the people who haven't been assigned and list them
+    // in case someone can't make it.
