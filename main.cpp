@@ -7,8 +7,12 @@
 #include <string>
 #include <chrono>
 #include <thread>
+#include <cmath>
 
 using json = nlohmann::json;
+
+// earth's radius
+const float R = 6371.0;
 
 // add country???
 struct Address {
@@ -28,6 +32,12 @@ struct Target {
     float lat;
 };
 
+struct Distance {
+    Address address;
+    Target target;
+    float distance;
+};
+
 json loadJsonFile(const std::string& path) 
 {
     std::ifstream file(path);
@@ -43,6 +53,8 @@ json loadJsonFile(const std::string& path)
 
 cpr::Response forwardGeolocate(std::string query, const char* apiKey)
 {
+    // example api req: https://us1.locationiq.com/v1/search?key=YOUR_API_KEY&q=Statue%20of%20Liberty,%20New%20York&format=json
+
     // TODO: make sure the query isn't ambiguous (can return multiple objects)
     // consider using country, postal code as well.
     cpr::Response r = cpr::Get(
@@ -55,18 +67,42 @@ cpr::Response forwardGeolocate(std::string query, const char* apiKey)
     return r;
 }
 
+float haversine(float lat1, float lon1, float lat2, float lon2) 
+{
+    // haversine formula
+    // distance = earth's radius * c
+
+    // this does not take actual roads into account
+    // it calculates the distance from point a to b in a direct line
+     
+    // delta lat / lan (converted to radian)
+    float dlat = (lat2 - lat1) * M_PI / 180.0;
+    float dlon = (lon2 - lon1) * M_PI / 180.0;
+
+    // lats also converted to radian
+    lat1 = lat1 * M_PI / 180.0;
+    lat2 = lat2 * M_PI / 180.0;
+
+    float a = sin(dlat / 2) * sin(dlat / 2) + cos(lat1) * cos(lat2) * sin(dlon / 2) * sin(dlon / 2);
+
+    float c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return R * c;
+}
+
 int main(int argc, char** argv) {
     // parse the address data from the json file
     // TODO: gain access to the roster/planning (hopefully as json) on ecologieconnect.nl
     // this could be a daily json with the roster of available people
 
     // I/O addresses + targets
-    json j = loadJsonFile("../address.json");  
-    json jt = loadJsonFile("../target.json");    
+    json j = loadJsonFile("../addresstest.json");  
+    json jt = loadJsonFile("../targettest.json");    
 
-    // vectors in which addresses/targets will be stored
+    // vectors in which addresses/targets/distances will be stored
     std::vector<Address> addresses;
     std::vector<Target> targets;
+    std::vector<Distance> distances;
 
     // populate addresses vector
     for (const auto& item: j){
@@ -128,10 +164,7 @@ int main(int argc, char** argv) {
     std::cout << "forward-geolocating employees' addresses..." << std::endl;
 
     for (auto& addr : addresses) {
-        // std::cout << "sending request for: " << addr.name << ", " << addr.address << ", " << addr.city << std::endl;    
-        
-        // https://eu1.locationiq.com/v1/search?key=YOUR_API_KEY&q=Statue%20of%20Liberty,%20New%20York&format=json
-        
+        // std::cout << "sending request for: " << addr.name << ", " << addr.address << ", " << addr.city << std::endl;            
         std::string query = addr.city + ", " + addr.address + ", Netherlands";
 
         cpr::Response r = forwardGeolocate(query, apiKey);
@@ -166,7 +199,22 @@ int main(int argc, char** argv) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1001));        
     } 
 
-    // TODO: add some targets to compare with all the addresses of the employees.    
+    // calc distance, TODO: populate matrix
+    // float haversine(float lat1, float lon1, float lat2, float lon2) 
+    for (const auto& tar : targets) {
+        for (const auto& addr : addresses) {
+            Distance distance;
+            distance.target = tar;
+            distance.address = addr;
+            distance.distance = haversine(tar.lat, tar.lon, addr.lat, addr.lon);
+
+            distances.push_back(distance);
+        }
+    }
+
+    for (const auto& d : distances) {
+        std::cout << "distance between: " << d.target.address << " and " << d.address.address << ": " << d.distance << "km" << std::endl;
+    }
 
     return 0;
 }
@@ -177,21 +225,16 @@ int main(int argc, char** argv) {
     // parse the addresses (json) with nlohmann/json
     // send a geocoding api request with the data of the addresses
 
-// OSRM /table api for distance/time matrix
+    // distance matrix  
 
-    // http://localhost:5000/table/v1/driving/<long1>,<lat1>;<long2>,<lat2>;... ?annotations=distance
-    /*
-
-    result:
-    {
-    "distances": [
-            [0, 4000, 7000],
-            [4000, 0, 3000],
-            [7000, 3000, 0]
-        ]
-    }
-
-    */
+    // result:
+    // {
+    // "distances": [
+    //         [0, 4000, 7000],
+    //         [4000, 0, 3000],
+    //         [7000, 3000, 0]
+    //     ]
+    // }
     
     // use this to compute total dist
 
