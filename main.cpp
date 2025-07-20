@@ -188,8 +188,8 @@ int main(int argc, char** argv) {
     // this could be a daily json with the roster of available people
 
     // I/O addresses + targets
-    json j = loadJsonFile("../addresstest.json");  
-    json jt = loadJsonFile("../targettest.json");    
+    json j = loadJsonFile("../address.json");  
+    json jt = loadJsonFile("../target.json");    
 
     // vectors in which addresses/targets/distances will be stored
     std::vector<Employee> employees;
@@ -252,7 +252,7 @@ int main(int argc, char** argv) {
             std::cout << "request failed, code: " << rt.status_code << std::endl;
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1001));
+        std::this_thread::sleep_for(std::chrono::milliseconds(501));
     }
 
     std::cout << "forward-geolocating employees' addresses..." << std::endl;
@@ -290,7 +290,7 @@ int main(int argc, char** argv) {
         // (so in the case of a new employee. be mindful of employee moving)
 
         // sleep to obey api rate limit
-        std::this_thread::sleep_for(std::chrono::milliseconds(1001));        
+        std::this_thread::sleep_for(std::chrono::milliseconds(501));        
     } 
 
     // calc the distance using haversine helper func and populate distances vector
