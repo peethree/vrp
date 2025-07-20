@@ -26,6 +26,7 @@ const float R = 6371.0;
 
 // add country???
 struct Employee {
+    int id;
     std::string name;
     std::string address;
     std::string city;
@@ -101,15 +102,83 @@ float haversine(float lat1, float lon1, float lat2, float lon2)
     return R * c;
 }
 
+
 namespace operations_research {
-void assignEmployees(std::vector<Distance> distances, std::vector<Employee> employees, std::vector<Target> targets)
+void assignEmployees(std::vector<Distance>& distances, std::vector<Employee>& employees, std::vector<Target>& targets)
 {
     int num_employees = employees.size();
-    // std::cout << "number of employees: " << num_employees << std::endl;
     int num_targets = targets.size();
-    // std::cout << "number of targets: " << num_targets << std::endl;
 
-    // MPSolver solver("EmployeeAssignment", MPSolver::SCIP_MIXED_INTEGER_PROGRAMMING);
+    MPSolver solver("EmployeeAssignment", MPSolver::SCIP_MIXED_INTEGER_PROGRAMMING);
+
+    // x[i][j] = 1 if employee i is assigned to target j
+    std::vector<std::vector<const MPVariable*>> x(num_employees, std::vector<const MPVariable*>(num_targets, nullptr));
+
+    // map employee ID to its index
+    std::unordered_map<int, int> id_to_index;
+    for (int i = 0; i < num_employees; ++i) {
+        id_to_index[employees[i].id] = i; 
+    }
+
+    // same for target
+    std::unordered_map<int, int> tar_num_to_index;
+    for (int i = 0; i < num_targets; ++i) {
+        tar_num_to_index[targets[i].target_number] = i; 
+    }
+
+    // create the decision variables
+    for (const auto& d : distances) {
+        int employee_index = id_to_index[d.employee.id];
+        int target_index = tar_num_to_index[d.target.target_number];
+        x[employee_index][target_index] = solver.MakeIntVar(0, 1, "x_" + std::to_string(employee_index) + "_" + std::to_string(target_index));
+    }
+
+    // constraint: each employee is assigned at most once
+    for (int i = 0; i < num_employees; ++i) {
+        LinearExpr expr;
+        for (int j = 0; j < num_targets; ++j) {
+            expr += x[i][j];
+        }
+        solver.MakeRowConstraint(expr <= 1);
+    }
+
+    // constraint: each target has a required number of people that need to be on location
+    for (int j = 0; j < num_targets; ++j) {
+        LinearExpr expr;
+        for (int i = 0; i < num_employees; ++i) {
+            expr += x[i][j];
+        }
+        // TODO: assert there are more available employees than total requirement of the targets combined
+        solver.MakeRowConstraint(expr == targets[j].req_employees);
+    }
+
+    // objective: minimize the total distance
+    MPObjective* objective = solver.MutableObjective();
+    for (const auto& d : distances) {
+        int employee_index = id_to_index[d.employee.id];
+        int target_index = tar_num_to_index[d.target.target_number];
+        objective->SetCoefficient(x[employee_index][target_index], d.distance);
+    }
+    
+    objective->SetMinimization();
+
+    // solve
+    MPSolver::ResultStatus result_status = solver.Solve();
+
+    if (result_status == MPSolver::OPTIMAL) {
+        std::cout << "Optimal assignment found!\n";
+        for (const auto& d : distances) {
+            int employee_index = id_to_index[d.employee.id];
+            int target_index = tar_num_to_index[d.target.target_number];
+            if (x[employee_index][target_index]->solution_value() > 0.5) {
+                std::cout << "employee " << employees[employee_index].name << " assigned to Target:" << targets[target_index].target_number << " - "
+                          << targets[target_index].address << " (distance = " << d.distance << " km)\n";
+            }
+        }
+        std::cout << "total cost: " << objective->Value() << " km\n";
+    } else {
+        std::cout << "no optimal solution found...\n";
+    }
 }
 }
 
@@ -129,12 +198,13 @@ int main(int argc, char** argv) {
 
     // populate employees vector
     for (const auto& item: j){
+        int id = item["id"];
         std::string name = item["name"];
         std::string address = item["address"];
         std::string city = item["city"];
 
         // make an Employee object, using employee data and push it into the addresses vector
-        employees.push_back(Employee{name, address, city});
+        employees.push_back(Employee{id, name, address, city});
     }
 
     // populate target vector
@@ -237,7 +307,7 @@ int main(int argc, char** argv) {
 
     // from the distances vector 
     for (const auto& d : distances) {
-        std::cout << "distance between: " << "(target_number: " << d.target.target_number << "- req." << d.target.req_employees << ") " << d.target.address << " and " << "(" << d.employee.name << ") " << d.employee.address << ": " << d.distance << "km" << std::endl;
+        std::cout << "distance between: " << "(target_number: " << d.target.target_number << "- req." << d.target.req_employees << ") " << d.target.address << " and " << "(" << d.employee.name << ":" << d.employee.id << ") " << d.employee.address << ": " << d.distance << "km" << std::endl;
     }
 
     // use google OR tools for assignment optimization
