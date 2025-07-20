@@ -14,11 +14,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 find_package(cpr REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
+set(CMAKE_PREFIX_PATH "$ENV{HOME}/or-tools" ${CMAKE_PREFIX_PATH})
+# set(ORTOOLS_DIR "$ENV{HOME}/or-tools")
+find_package(ortools REQUIRED CONFIG)
+
 # Add the executable
 add_executable(main main.cpp)
 
 # Link libraries
-target_link_libraries(main PRIVATE cpr::cpr nlohmann_json::nlohmann_json)
-
-
-
+target_link_libraries(main PRIVATE cpr::cpr nlohmann_json::nlohmann_json ortools::ortools)

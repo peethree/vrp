@@ -3,11 +3,21 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
-#include <cstdlib>
 #include <string>
 #include <chrono>
 #include <thread>
 #include <cmath>
+
+// ortools dependencies
+#include <memory>
+#include <cstdlib>
+
+#include "absl/base/log_severity.h"
+#include "absl/log/globals.h"
+#include "absl/log/log.h"
+#include "ortools/base/init_google.h"
+#include "ortools/init/init.h"
+#include "ortools/linear_solver/linear_solver.h"
 
 using json = nlohmann::json;
 
@@ -15,7 +25,7 @@ using json = nlohmann::json;
 const float R = 6371.0;
 
 // add country???
-struct Address {
+struct Employee {
     std::string name;
     std::string address;
     std::string city;
@@ -28,12 +38,13 @@ struct Target {
     std::string address;
     std::string city;
     std::string country;
+    int req_employees;
     float lon;
     float lat;
 };
 
 struct Distance {
-    Address address;
+    Employee employee;
     Target target;
     float distance;
 };
@@ -90,6 +101,18 @@ float haversine(float lat1, float lon1, float lat2, float lon2)
     return R * c;
 }
 
+namespace operations_research {
+void assignEmployees(std::vector<Distance> distances, std::vector<Employee> employees, std::vector<Target> targets)
+{
+    int num_employees = employees.size();
+    // std::cout << "number of employees: " << num_employees << std::endl;
+    int num_targets = targets.size();
+    // std::cout << "number of targets: " << num_targets << std::endl;
+
+    // MPSolver solver("EmployeeAssignment", MPSolver::SCIP_MIXED_INTEGER_PROGRAMMING);
+}
+}
+
 int main(int argc, char** argv) {
     // parse the address data from the json file
     // TODO: gain access to the roster/planning (hopefully as json) on ecologieconnect.nl
@@ -100,18 +123,18 @@ int main(int argc, char** argv) {
     json jt = loadJsonFile("../targettest.json");    
 
     // vectors in which addresses/targets/distances will be stored
-    std::vector<Address> addresses;
+    std::vector<Employee> employees;
     std::vector<Target> targets;
     std::vector<Distance> distances;
 
-    // populate addresses vector
+    // populate employees vector
     for (const auto& item: j){
         std::string name = item["name"];
         std::string address = item["address"];
         std::string city = item["city"];
 
-        // make an Address object, using employee data and push it into the addresses vector
-        addresses.push_back(Address{name, address, city});
+        // make an Employee object, using employee data and push it into the addresses vector
+        employees.push_back(Employee{name, address, city});
     }
 
     // populate target vector
@@ -120,8 +143,9 @@ int main(int argc, char** argv) {
         std::string address = item["address"];
         std::string city = item["city"];
         std::string country = item["country"];
+        int req_emp = item["req_employees"];
 
-        targets.push_back(Target{target, address, city, country});
+        targets.push_back(Target{target, address, city, country, req_emp});
     }
 
     // get api key from env
@@ -163,9 +187,9 @@ int main(int argc, char** argv) {
 
     std::cout << "forward-geolocating employees' addresses..." << std::endl;
 
-    for (auto& addr : addresses) {
-        // std::cout << "sending request for: " << addr.name << ", " << addr.address << ", " << addr.city << std::endl;            
-        std::string query = addr.city + ", " + addr.address + ", Netherlands";
+    for (auto& emp : employees) {
+        // std::cout << "sending request for: " << emp.name << ", " << emp.address << ", " << emp.city << std::endl;            
+        std::string query = emp.city + ", " + emp.address + ", Netherlands";
 
         cpr::Response r = forwardGeolocate(query, apiKey);
         r.status_code;
@@ -177,10 +201,10 @@ int main(int argc, char** argv) {
                 json response = json::parse(r.text);
 
                 if (!response.empty()) {
-                    addr.lat = std::stof(response[0]["lat"].get<std::string>());
-                    addr.lon = std::stof(response[0]["lon"].get<std::string>());               
+                    emp.lat = std::stof(response[0]["lat"].get<std::string>());
+                    emp.lon = std::stof(response[0]["lon"].get<std::string>());               
 
-                    std::cout << "name: " << addr.name << ", lat: " << addr.lat << ", lon: " << addr.lon << std::endl;
+                    std::cout << "name: " << emp.name << ", lat: " << emp.lat << ", lon: " << emp.lon << std::endl;
                 }
             } catch (const std::exception& e) {
                 std::cerr << "JSON parse error: " << e.what() << std::endl;
@@ -189,7 +213,7 @@ int main(int argc, char** argv) {
             std::cout << "request failed, code: " << r.status_code << std::endl;
         }
 
-        // TODO: add lon / lat fields to Address and populate them.
+        // TODO: add lon / lat fields to Employee and populate them.
         // save result to file or csv.
         // in the future, check file beforehand and only 
         // make this request if lon/lat isn't known
@@ -199,22 +223,25 @@ int main(int argc, char** argv) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1001));        
     } 
 
-    // calc distance, TODO: populate matrix
-    // float haversine(float lat1, float lon1, float lat2, float lon2) 
+    // calc the distance using haversine helper func and populate distances vector
     for (const auto& tar : targets) {
-        for (const auto& addr : addresses) {
+        for (const auto& emp : employees) {
             Distance distance;
             distance.target = tar;
-            distance.address = addr;
-            distance.distance = haversine(tar.lat, tar.lon, addr.lat, addr.lon);
+            distance.employee = emp;
+            distance.distance = haversine(tar.lat, tar.lon, emp.lat, emp.lon);
 
             distances.push_back(distance);
         }
     }
 
+    // from the distances vector 
     for (const auto& d : distances) {
-        std::cout << "distance between: " << d.target.address << " and " << d.address.address << ": " << d.distance << "km" << std::endl;
+        std::cout << "distance between: " << "(target_number: " << d.target.target_number << "- req." << d.target.req_employees << ") " << d.target.address << " and " << "(" << d.employee.name << ") " << d.employee.address << ": " << d.distance << "km" << std::endl;
     }
+
+    // use google OR tools for assignment optimization
+    operations_research::assignEmployees(distances, employees, targets);
 
     return 0;
 }

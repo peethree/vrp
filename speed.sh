@@ -15,6 +15,11 @@ run() {
     ./main
 }
 
+clean() {
+    # make sure you're already in the vrp dir
+    rm -rf build/*
+}
+
 case "$1" in 
   configure|c)
     configure
@@ -26,6 +31,10 @@ case "$1" in
     ;;
   run|r)
     run
+    exit 0
+    ;;
+  clean)
+    clean
     exit 0
     ;;
 esac
