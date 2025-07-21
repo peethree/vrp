@@ -18,3 +18,9 @@ Once all the necessary information is gathered, OR-tools from google are used to
 
 In my case cpr and nlohmann/json were installed with vcpkg and or-tools was installed manually in the home directory.
 The api key needs to be retrievable from env. In the case of linux: 'export LIQ_API_KEY="..."' inside .bashrc
+
+#### future TODOs
+- make something of a GUI
+- cache lon/lats from employees so the program is bottlenecked less by the api request rate limit
+- export the optimal assignments into a document.
+- add support for assigning an employee twice on the same day (evening + night shift)

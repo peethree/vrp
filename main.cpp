@@ -42,6 +42,7 @@ struct Target {
     int req_employees;
     float lon;
     float lat;
+    // TODO: add a time slot to the struct (evening, night) so employees can be assigned to evening + night in the future
 };
 
 struct Distance {
@@ -85,7 +86,7 @@ float haversine(float lat1, float lon1, float lat2, float lon2)
     // distance = earth's radius * c
 
     // this does not take actual roads into account
-    // it calculates the distance from point a to b in a direct line
+    // it calculates the distance from point a to b in a direct (albeit CURVED, ASSUMING the earth is round) line
      
     // delta lat / lan (converted to radian)
     float dlat = (lat2 - lat1) * M_PI / 180.0;
@@ -101,7 +102,6 @@ float haversine(float lat1, float lon1, float lat2, float lon2)
 
     return R * c;
 }
-
 
 namespace operations_research {
 void assignEmployees(std::vector<Distance>& distances, std::vector<Employee>& employees, std::vector<Target>& targets)
@@ -120,7 +120,7 @@ void assignEmployees(std::vector<Distance>& distances, std::vector<Employee>& em
         id_to_index[employees[i].id] = i; 
     }
 
-    // same for target
+    // same for target (using .target_number instead of .id)
     std::unordered_map<int, int> tar_num_to_index;
     for (int i = 0; i < num_targets; ++i) {
         tar_num_to_index[targets[i].target_number] = i; 
@@ -130,6 +130,7 @@ void assignEmployees(std::vector<Distance>& distances, std::vector<Employee>& em
     for (const auto& d : distances) {
         int employee_index = id_to_index[d.employee.id];
         int target_index = tar_num_to_index[d.target.target_number];
+
         x[employee_index][target_index] = solver.MakeIntVar(0, 1, "x_" + std::to_string(employee_index) + "_" + std::to_string(target_index));
     }
 
@@ -157,6 +158,7 @@ void assignEmployees(std::vector<Distance>& distances, std::vector<Employee>& em
     for (const auto& d : distances) {
         int employee_index = id_to_index[d.employee.id];
         int target_index = tar_num_to_index[d.target.target_number];
+
         objective->SetCoefficient(x[employee_index][target_index], d.distance);
     }
     
@@ -170,6 +172,7 @@ void assignEmployees(std::vector<Distance>& distances, std::vector<Employee>& em
         for (const auto& d : distances) {
             int employee_index = id_to_index[d.employee.id];
             int target_index = tar_num_to_index[d.target.target_number];
+
             if (x[employee_index][target_index]->solution_value() > 0.5) {
                 std::cout << "employee " << employees[employee_index].name << " assigned to Target:" << targets[target_index].target_number << " - "
                           << targets[target_index].address << " (distance = " << d.distance << " km)\n";
@@ -310,34 +313,20 @@ int main(int argc, char** argv) {
         std::cout << "distance between: " << "(target_number: " << d.target.target_number << "- req." << d.target.req_employees << ") " << d.target.address << " and " << "(" << d.employee.name << ":" << d.employee.id << ") " << d.employee.address << ": " << d.distance << "km" << std::endl;
     }
 
-    // use google OR tools for assignment optimization
-    operations_research::assignEmployees(distances, employees, targets);
+    // before assignment, check if there are enough employees available to hit every target requirement
+    int num_employees = employees.size();
+    int sum = 0;
+
+    for (const auto& t : targets) {
+        sum += t.req_employees; 
+    }
+
+    if (sum > num_employees) {
+        std::cout << "Not enough resources! The total employee requirement for the targets is: " << sum << " and the total available employees is: " << num_employees << std::endl;
+    } else {
+        // use google OR tools for assignment optimization
+        operations_research::assignEmployees(distances, employees, targets);
+    }
 
     return 0;
 }
-
-// http request geocoding API -> home address to long/lat
-
-    // cpr HTTP req
-    // parse the addresses (json) with nlohmann/json
-    // send a geocoding api request with the data of the addresses
-
-    // distance matrix  
-
-    // result:
-    // {
-    // "distances": [
-    //         [0, 4000, 7000],
-    //         [4000, 0, 3000],
-    //         [7000, 3000, 0]
-    //     ]
-    // }
-    
-    // use this to compute total dist
-
-    // optimize the routes. greedy algo or google OR-tools VRP solution
-
-    // print assignments.
-
-    // keep track of the people who haven't been assigned and list them
-    // in case someone can't make it.
