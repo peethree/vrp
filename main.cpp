@@ -22,8 +22,17 @@ struct Employee {
     std::string name;
     std::string address;
     std::string city;
+    std::vector<std::string> no_pair;
     float lon;
     float lat;
+};
+
+struct No_pair {
+    std::string first;
+    std::string second;
+
+    // constructor to initialize the fields
+    No_pair(const std::string& f, const std::string& s) : first(f), second(s) {}
 };
 
 struct Target {
@@ -274,27 +283,64 @@ int main(int argc, char** argv) {
     // this could be a daily json with the roster of available people
 
     // I/O employees + targets data
-    json j = loadJsonFile("../address.json");  
-    json jt = loadJsonFile("../target.json");    
+    json j = loadJsonFile("../addresstest.json");  
+    json jt = loadJsonFile("../targettest.json");    
 
     // vectors in which addresses/targets/distances will be stored
     std::vector<Employee> employees;
     std::vector<Target> targets;
     std::vector<Distance> distances;
+    std::vector<No_pair> no_pairs;
 
     // populate employees vector
-    for (const auto& item: j){
+    for (const auto& item : j){
         int id = item["id"];
         std::string name = item["name"];
         std::string address = item["address"];
         std::string city = item["city"];
 
+        std::vector<std::string> no_pair;
+        // get the no-pairs from json if there are any, should be a list in the json file for the biggest freak 
+        if (item.contains("no_pair") && item["no_pair"].is_array()) {
+            no_pair = item["no_pair"].get<std::vector<std::string>>();
+        } else {
+            no_pair = {}; 
+        }
+
         // make an Employee object, using employee data and push it into the addresses vector
-        employees.push_back(Employee{id, name, address, city});
+        employees.push_back(Employee{id, name, address, city, no_pair});
     }
 
+    // print the employees who have enemies and do not wish to work together with said persons
+    for (const auto& emp : employees) {
+        if (!emp.no_pair.empty()) {
+            // std::cout << "Employee: " << emp.name << std::endl;
+            // std::cout << "No pair: ";
+            // for (const auto& p : emp.no_pair) {
+            //     std::cout << p << ", ";
+            // }
+            // std::cout << std::endl;
+
+            for (const auto& p_name : emp.no_pair) {
+                for (const auto& other_emp : employees) {
+                    if (p_name == other_emp.name) {
+                        // std::cout << p_name << " found in no pair of : " << emp.name << std::endl;
+                        no_pairs.emplace_back(emp.name, other_emp.name);
+                    }
+                }
+            }
+        }
+    }
+
+    for (const auto& np : no_pairs) {
+        std::cout << "(" << np.first << ", " << np.second << ")" << std::endl;
+    }
+
+    // TODO: add another constriction to google ortools calc that 
+    // a no_pairs pair cannot end up at the same target location
+
     // populate target vector
-    for (const auto& item: jt){
+    for (const auto& item : jt){
         int target_number = item["target_number"];
         std::string address = item["address"];
         std::string city = item["city"];
@@ -408,8 +454,17 @@ int main(int argc, char** argv) {
         std::cout << "Not enough resources! The total employee requirement for the targets is: " << sum << " and the total available employees is: " << num_employees << std::endl;
     } else {
         // use google OR tools for assignment optimization
-        operations_research::assignEmployeesBalanced(distances, employees, targets);
+        // TODO: based on command line input, run different function   
+             
+        // operations_research::assignEmployeesBalanced(distances, employees, targets);    
+        operations_research::assignEmployees(distances, employees, targets);       
     }
+
+    // TODO: add more fields to the json input files
+    // cannot group with:
+    // always try to group together:
+    // then parse these field and populate "no group employees" as well as
+    // "always try to group employees"
 
     return 0;
 }
