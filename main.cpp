@@ -23,6 +23,7 @@ struct Employee {
     std::string address;
     std::string city;
     std::vector<std::string> no_pair;
+    std::vector<std::string> friends;
     float lon;
     float lat;
 };
@@ -276,7 +277,8 @@ void assignEmployeesBalanced(std::vector<Distance>& distances, std::vector<Emplo
     }
 }
 
-void assignEmployeesEnemies(std::vector<Distance>& distances, std::vector<Employee>& employees, std::vector<Target>& targets, std::vector<No_pair>& conflicts)
+void assignEmployeesEnemiesAndFriends(std::vector<Distance>& distances, std::vector<Employee>& employees, 
+    std::vector<Target>& targets, std::vector<No_pair>& conflicts)
 {
     int num_employees = employees.size();
     int num_targets = targets.size();
@@ -387,6 +389,7 @@ int main(int argc, char** argv) {
     std::vector<Target> targets;
     std::vector<Distance> distances;
     std::vector<No_pair> no_pairs;
+    std::vector<std::pair<int, std::vector<int>>> friend_groups;
 
     // populate employees vector
     for (const auto& item : j){
@@ -395,7 +398,7 @@ int main(int argc, char** argv) {
         std::string address = item["address"];
         std::string city = item["city"];
 
-        std::vector<std::string> no_pair;
+        std::vector<std::string> no_pair;        
         // get the no-pairs from json if there are any, should be a list in the json file for the biggest freak 
         if (item.contains("no_pair") && item["no_pair"].is_array()) {
             no_pair = item["no_pair"].get<std::vector<std::string>>();
@@ -403,24 +406,54 @@ int main(int argc, char** argv) {
             no_pair = {}; 
         }
 
-        // make an Employee object, using employee data and push it into the addresses vector
-        employees.push_back(Employee{id, name, address, city, no_pair});
+        std::vector<std::string> friends; 
+        // same for friends (or people who'd prefer to work together)
+        if (item.contains("friends") && item["friends"].is_array()) {
+            friends = item["friends"].get<std::vector<std::string>>();
+        } else {
+            friends = {}; 
+        }
+
+        // make an Employee object, using employee data and push it into the employees vector
+        employees.push_back(Employee{id, name, address, city, no_pair, friends});
+    }
+
+    // names mapped to id
+    std::unordered_map<std::string, int> name_to_id;
+    for (const auto& emp : employees) {
+        name_to_id[emp.name] = emp.id;
     }
 
     // print the employees who have enemies and do not wish to work together with said persons
+    // as well as their friends 
     for (const auto& emp : employees) {
+        if (!emp.friends.empty()) {
+            std::cout << "employee: " << emp.name << " has the following friends: ";
+            for (const auto& f : emp.friends) {
+                std::cout << f << ", ";
+            }
+            std::cout << std::endl;
+
+            std::vector<int> friend_ids;
+            for (const auto& f_name : emp.friends) {
+                // check if friend exists in name_to_id map
+                if (name_to_id.find(f_name) != name_to_id.end()) {
+                    friend_ids.push_back(name_to_id[f_name]);
+                }
+            }
+            friend_groups.emplace_back(emp.id, friend_ids);
+        }
         if (!emp.no_pair.empty()) {
-            // std::cout << "Employee: " << emp.name << std::endl;
-            // std::cout << "No pair: ";
-            // for (const auto& p : emp.no_pair) {
-            //     std::cout << p << ", ";
-            // }
-            // std::cout << std::endl;
+            std::cout << "employee: " << emp.name << " does not like the following people: ";
+            for (const auto& p : emp.no_pair) {
+                std::cout << p << ", ";
+            }
+            std::cout << std::endl;
 
             for (const auto& p_name : emp.no_pair) {
                 for (const auto& other_emp : employees) {
                     if (p_name == other_emp.name) {
-                        // std::cout << p_name << " found in no pair of : " << emp.name << std::endl;
+                        std::cout << p_name << " found in the shit-list of : " << emp.name << std::endl;
                         no_pairs.emplace_back(emp.id, other_emp.id);
                     }
                 }
@@ -429,12 +462,18 @@ int main(int argc, char** argv) {
     }
 
     // these pairs ought not be at the same location:
-    for (const auto& np : no_pairs) {
-        std::cout << "(" << np.first << ", " << np.second << ")" << std::endl;
-    }
+    // for (const auto& np : no_pairs) {
+    //     std::cout << "(" << np.first << ", " << np.second << ")" << std::endl;
+    // }
 
-    // TODO: add another constriction to google ortools calc that 
-    // a no_pairs pair cannot end up at the same target location
+    // these friends ought to stick together
+    for (const auto& f_group : friend_groups) {
+        std::cout << "employee id: " << f_group.first << " has friends with IDs: ";
+        for (int f_id : f_group.second) {
+            std::cout << f_id << ", ";
+        }
+        std::cout << std::endl;
+    }
 
     // populate target vector
     for (const auto& item : jt){
@@ -555,14 +594,8 @@ int main(int argc, char** argv) {
              
         // operations_research::assignEmployeesBalanced(distances, employees, targets);    
         // operations_research::assignEmployees(distances, employees, targets);       
-        operations_research::assignEmployeesEnemies(distances, employees, targets, no_pairs);
+        operations_research::assignEmployeesEnemiesAndFriends(distances, employees, targets, no_pairs);
     }
-
-    // TODO: add more fields to the json input files
-    // cannot group with:
-    // always try to group together:
-    // then parse these field and populate "no group employees" as well as
-    // "always try to group employees"
 
     return 0;
 }
