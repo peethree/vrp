@@ -1,7 +1,7 @@
 #include "assignment.h"
 #include "ortools/linear_solver/linear_solver.h"
 
-#define FAVOR_COEFFICIENT 50.0
+#define FAVOR_COEFFICIENT 100.0
 
 namespace operations_research {
 /* This version of the assignment function tries to compute the combination of assignments that would

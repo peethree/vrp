@@ -117,10 +117,10 @@ int main(int argc, char** argv)
         name_to_id[emp.name] = emp.id;
     }
 
-    // print the employees who have enemies and do not wish to work together with said persons
-    // as well as their friends 
     for (const auto& emp : employees) {
         if (!emp.friends.empty()) {
+            // print the employees who have enemies and do not wish to work together with said persons
+            // as well as their friends 
             // std::cout << "employee: " << emp.name << " has the following friends: ";
             // for (const auto& f : emp.friends) {
             //     std::cout << f << ", ";
@@ -129,7 +129,7 @@ int main(int argc, char** argv)
 
             std::vector<int> friend_ids;
             for (const auto& f_name : emp.friends) {
-                // check if friend exists in name_to_id map
+                // check if "friend" exists in name_to_id map
                 if (name_to_id.find(f_name) != name_to_id.end()) {
                     friend_ids.push_back(name_to_id[f_name]);
                 }
@@ -146,7 +146,7 @@ int main(int argc, char** argv)
             for (const auto& p_name : emp.no_pair) {
                 for (const auto& other_emp : employees) {
                     if (p_name == other_emp.name) {
-                        // std::cout << p_name << " found in the shit-list of : " << emp.name << std::endl;
+                        // std::cout << p_name << " found in the shit-list of: " << emp.name << std::endl;
                         no_pairs.emplace_back(emp.id, other_emp.id);
                     }
                 }
@@ -220,6 +220,7 @@ int main(int argc, char** argv)
 
     for (auto& emp : employees) {
         // std::cout << "sending request for: " << emp.name << ", " << emp.address << ", " << emp.city << std::endl;            
+        // TODO: this assumes every employee lives in the netherlands which might not be the case
         std::string query = emp.city + ", " + emp.address + ", Netherlands";
 
         cpr::Response r = forwardGeolocate(query, apiKey);
@@ -271,7 +272,7 @@ int main(int argc, char** argv)
         std::cout << "distance between: " << "(target_number: " << d.target.target_number << "- req." << d.target.req_employees << ") " << d.target.address << " and " << "(" << d.employee.name << ":" << d.employee.id << ") " << d.employee.address << ": " << d.distance << "km" << std::endl;
     }
 
-    // before assignment, check if there are enough employees available to hit every target requirement
+    // before bothering with the assignment, check if there are enough employees available to hit every target requirement
     int num_employees = employees.size();
     int sum = 0;
 
@@ -283,10 +284,15 @@ int main(int argc, char** argv)
         std::cout << "Not enough resources! The total employee requirement for the targets is: " << sum << " and the total available employees is: " << num_employees << std::endl;
     } else {
         // use google OR tools for assignment optimization
-        // TODO: based on command line input, run different function   
+        // TODO: based on command line input, run different function?
              
-        // operations_research::assignEmployeesBalanced(distances, employees, targets);    
+        // closer distribution of distances:
+        // operations_research::assignEmployeesBalanced(distances, employees, targets);   
+        
+        // shortest amount of distance 
         // operations_research::assignEmployees(distances, employees, targets);       
+
+        /// takes into account enemies / people who always want to be on the same location
         operations_research::assignEmployeesEnemiesAndFriends(distances, employees, targets, no_pairs, friend_groups);
     }
 
