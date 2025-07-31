@@ -44,7 +44,7 @@ struct Distance {
 namespace operations_research {
     void assignEmployees(std::vector<Distance>& distances, std::vector<Employee>& employees, std::vector<Target>& targets);
     void assignEmployeesBalanced(std::vector<Distance>& distances, std::vector<Employee>& employees, std::vector<Target>& targets);
-    void assignEmployeesEnemiesAndFriends(std::vector<Distance>& distances, std::vector<Employee>& employees, std::vector<Target>& targets, std::vector<No_pair>& conflicts);
+    void assignEmployeesEnemiesAndFriends(std::vector<Distance>& distances, std::vector<Employee>& employees, std::vector<Target>& targets, std::vector<No_pair>& conflicts, std::vector<std::pair<int, std::vector<int>>> &friend_groups);
 }
 
 #endif 

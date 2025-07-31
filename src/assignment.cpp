@@ -1,6 +1,8 @@
 #include "assignment.h"
 #include "ortools/linear_solver/linear_solver.h"
 
+#define FAVOR_COEFFICIENT 120.0
+
 namespace operations_research {
 /* This version of the assignment function tries to compute the combination of assignments that would
 lead to the least amount of kilometers travelled. This will have some outliers. People with very short 
@@ -174,6 +176,57 @@ void assignEmployeesBalanced(std::vector<Distance>& distances, std::vector<Emplo
     }
 }
 
+// constraint: some employees are favored to be paired together (based on favor_coefficient)
+// which reduces the total distance assigned (artificially just to favor certain pairings 
+// to be assigned to the same location)
+void addFriendConstraint(MPSolver& solver, MPObjective* objective, std::vector<std::pair<int, std::vector<int>>>& friend_groups,
+    std::unordered_map<int, int>& id_to_index, std::vector<std::vector<const MPVariable*>>& x, int num_targets)
+{
+    for (const auto& group : friend_groups) {
+        // the person who has the friend group
+        const auto& main_character = group.first;
+        // the people inside that person's friend group
+        const auto& friends = group.second;
+
+        if (!id_to_index.count(group.first)) continue;
+        int main_character_id = id_to_index[main_character];
+    
+        for (const auto& frend : friends) {
+            if (!id_to_index.count(frend)) continue;
+            int friend_id = id_to_index[frend];
+
+            for (int t = 0; t < num_targets; ++t) {
+                const MPVariable* x1 = x[main_character_id][t]; 
+                const MPVariable* x2 = x[friend_id][t];
+                if (!x1 || !x2) continue;
+
+                // y = 1 if both x1 and x2 are assigned to this target
+                MPVariable* y = solver.MakeIntVar(0, 1, "y_" + std::to_string(main_character_id) + "_" + std::to_string(friend_id) + "_" + std::to_string(t));
+
+                // y <= x1
+                MPConstraint* c1 = solver.MakeRowConstraint(-MPSolver::infinity(), 0);
+                c1->SetCoefficient(y, 1);
+                c1->SetCoefficient(x1, -1);
+
+                // y <= x2
+                MPConstraint* c2 = solver.MakeRowConstraint(-MPSolver::infinity(), 0);
+                c2->SetCoefficient(y, 1);
+                c2->SetCoefficient(x2, -1);
+
+                // y >= x1 + x2 - 1  -->  y - x1 - x2 >= -1
+                MPConstraint* c3 = solver.MakeRowConstraint(-1, MPSolver::infinity());
+                c3->SetCoefficient(y, 1);
+                c3->SetCoefficient(x1, -1);
+                c3->SetCoefficient(x2, -1);
+
+                // reward in objective
+                objective->SetCoefficient(y, -FAVOR_COEFFICIENT);                    
+            }
+        }
+    }
+}
+
+
 void assignEmployeesEnemiesAndFriends(std::vector<Distance>& distances, std::vector<Employee>& employees, 
     std::vector<Target>& targets, std::vector<No_pair>& conflicts, std::vector<std::pair<int, std::vector<int>>> &friend_groups)
 {
@@ -238,18 +291,17 @@ void assignEmployeesEnemiesAndFriends(std::vector<Distance>& distances, std::vec
                 }
             }
         }
-    }
-
-    // constraint: some employees are heavily favored to be paired together
+    }  
 
     // objective: minimize the total distance
     MPObjective* objective = solver.MutableObjective();
     for (const auto& d : distances) {
         int employee_index = id_to_index[d.employee.id];
         int target_index = tar_num_to_index[d.target.target_number];
-
         objective->SetCoefficient(x[employee_index][target_index], d.distance);
     }
+
+    addFriendConstraint(solver, objective, friend_groups, id_to_index, x, num_targets);
     
     objective->SetMinimization();
 

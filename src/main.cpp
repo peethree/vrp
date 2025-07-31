@@ -286,7 +286,7 @@ int main(int argc, char** argv) {
              
         // operations_research::assignEmployeesBalanced(distances, employees, targets);    
         // operations_research::assignEmployees(distances, employees, targets);       
-        operations_research::assignEmployeesEnemiesAndFriends(distances, employees, targets, no_pairs);
+        operations_research::assignEmployeesEnemiesAndFriends(distances, employees, targets, no_pairs, friend_groups);
     }
 
     return 0;
