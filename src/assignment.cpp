@@ -1,7 +1,7 @@
 #include "assignment.h"
 #include "ortools/linear_solver/linear_solver.h"
 
-#define FAVOR_COEFFICIENT 120.0
+#define FAVOR_COEFFICIENT 50.0
 
 namespace operations_research {
 /* This version of the assignment function tries to compute the combination of assignments that would
@@ -305,6 +305,10 @@ void assignEmployeesEnemiesAndFriends(std::vector<Distance>& distances, std::vec
     
     objective->SetMinimization();
 
+    // since we decrease the objective->Value() by the FAVOR_COEFFICIENT every time we pair friends
+    // keep track of the total distance of the assignment by summing up the distance traveled by every employee
+    float km_sum = 0;
+
     // solve
     MPSolver::ResultStatus result_status = solver.Solve();
 
@@ -317,9 +321,11 @@ void assignEmployeesEnemiesAndFriends(std::vector<Distance>& distances, std::vec
             if (x[employee_index][target_index]->solution_value() > 0.5) {
                 std::cout << "employee " << employees[employee_index].name << " assigned to Target:" << targets[target_index].target_number << " - "
                           << targets[target_index].address << " (distance = " << d.distance << " km)" << std::endl;
+
+                km_sum += d.distance;
             }
         }
-        std::cout << "total cost: " << objective->Value() << " km" << std::endl;
+        std::cout << "total cost: " << km_sum << " km" << std::endl;
     } else {
         std::cout << "no optimal solution found..." << std::endl;
     }

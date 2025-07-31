@@ -67,7 +67,8 @@ float haversine(float lat1, float lon1, float lat2, float lon2)
     return R * c;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) 
+{
     // parse the address data from the json file
     // TODO: gain access to the roster/planning (hopefully as json) on ecologieconnect.nl
     // this could be a daily json with the roster of available people
@@ -120,11 +121,11 @@ int main(int argc, char** argv) {
     // as well as their friends 
     for (const auto& emp : employees) {
         if (!emp.friends.empty()) {
-            std::cout << "employee: " << emp.name << " has the following friends: ";
-            for (const auto& f : emp.friends) {
-                std::cout << f << ", ";
-            }
-            std::cout << std::endl;
+            // std::cout << "employee: " << emp.name << " has the following friends: ";
+            // for (const auto& f : emp.friends) {
+            //     std::cout << f << ", ";
+            // }
+            // std::cout << std::endl;
 
             std::vector<int> friend_ids;
             for (const auto& f_name : emp.friends) {
@@ -136,16 +137,16 @@ int main(int argc, char** argv) {
             friend_groups.emplace_back(emp.id, friend_ids);
         }
         if (!emp.no_pair.empty()) {
-            std::cout << "employee: " << emp.name << " does not like the following people: ";
-            for (const auto& p : emp.no_pair) {
-                std::cout << p << ", ";
-            }
-            std::cout << std::endl;
+            // std::cout << "employee: " << emp.name << " does not like the following people: ";
+            // for (const auto& p : emp.no_pair) {
+            //     std::cout << p << ", ";
+            // }
+            // std::cout << std::endl;
 
             for (const auto& p_name : emp.no_pair) {
                 for (const auto& other_emp : employees) {
                     if (p_name == other_emp.name) {
-                        std::cout << p_name << " found in the shit-list of : " << emp.name << std::endl;
+                        // std::cout << p_name << " found in the shit-list of : " << emp.name << std::endl;
                         no_pairs.emplace_back(emp.id, other_emp.id);
                     }
                 }
@@ -154,18 +155,18 @@ int main(int argc, char** argv) {
     }
 
     // these pairs ought not be at the same location:
-    for (const auto& np : no_pairs) {
-        std::cout << "(" << np.first << ", " << np.second << ")" << std::endl;
-    }
+    // for (const auto& np : no_pairs) {
+    //     std::cout << "(" << np.first << ", " << np.second << ")" << std::endl;
+    // }
 
     // these friends ought to stick together
-    for (const auto& f_group : friend_groups) {
-        std::cout << "employee id: " << f_group.first << " has friends with IDs: ";
-        for (int f_id : f_group.second) {
-            std::cout << f_id << ", ";
-        }
-        std::cout << std::endl;
-    }
+    // for (const auto& f_group : friend_groups) {
+    //     std::cout << "employee id: " << f_group.first << " has friends with IDs: ";
+    //     for (int f_id : f_group.second) {
+    //         std::cout << f_id << ", ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     // populate target vector
     for (const auto& item : jt){
